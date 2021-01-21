@@ -34,7 +34,7 @@ All packets are COBS-encoded (using the 'default' 0x00 delimiter)
 and consist of requests and responses.
 
 * 3-byte big-endian byte start address + write bit
-* Data (if a write) or number of bytes requested (if a read)
+* Data (if a write) or number of bytes requested (if a read) minus 1
 
 The first 3 bytes are a big-endian address (most significant bytes
 first). The "top bit" (bit 7 in byte 0) indicates a write (if 1)
@@ -51,4 +51,39 @@ should have 4 bytes, all reads should request 4 bytes).
 
 For the FPGA, there is no restriction: data can be requested/written
 to at byte addresses of any length.
+
+Multi-byte *registers* internally are little-endian, meaning
+that the packet format gets a bit mixed (big endian address, little
+endian data).
+
+## Examples
+
+All examples here are given *before* COBS encoding.
+
+Write 0xDEADBEEF to register 0x000100:
+
+```
+80 01 00 EF BE AD DE
+```
+
+(note the little-endian byte ordering)
+
+The response back would be (after decoding)
+
+```
+80 01 00 03
+```
+
+indicating 4 bytes written.
+
+Read register 0x000104 (which contains 0xBABEFACE):
+
+```
+00 01 04 03
+```
+
+and receive back (after decoding)
+```
+00 01 04 CE FE BE BA
+```
 
