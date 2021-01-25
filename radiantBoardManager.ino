@@ -6,15 +6,14 @@
 #include <PacketSerial.h>
 
 #include <Wire.h>
-#include "wiring_private.h"
 
 #define VER_MAJOR 0
-#define VER_MINOR 1
+#define VER_MINOR 2
 #define VER_REV   0
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 1
-#define DATE_DAY   21
+#define DATE_DAY   25
 #define DATE_YEAR  21
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
@@ -234,6 +233,8 @@ void diedie(uint32_t errcode) {
 #define SD_DETECT 23
 #define BM_EN_10MHZ 22
 
+#define BMGPIO2 33
+
 void setup() {  
   // The powergoods all need pullups.
   pinMode(PGV10, INPUT_PULLUP);
@@ -247,6 +248,12 @@ void setup() {
   // enable clock by default
   digitalWrite(BM_EN_10MHZ, HIGH);
   pinMode(BM_EN_10MHZ, OUTPUT);
+  // LEDs
+  digitalWrite(PIN_LED, LOW);
+  digitalWrite(PIN_LED2, LOW);
+  pinMode(PIN_LED, OUTPUT);
+  pinMode(PIN_LED2, OUTPUT);
+  
 
   // analog read resolution
   analogReadResolution(16);    
@@ -263,6 +270,13 @@ void setup() {
   ////////////////////////////////////////////////////
   if (!flash.begin()) diedie(BM_ERR_STARTUP_SPI);
   if (!pythonfs.begin(&flash)) diedie(BM_ERR_STARTUP_FAT);
+  ////////////////////////////////////////////////////  
+  SPI1.begin();
+  // Re-convert the MISO pin back to an output (low)
+  // because VINMON never got connected (... whoops).
+  digitalWrite(PIN_SPI1_MISO, LOW);
+  pinMode(PIN_SPI1_MISO, OUTPUT);
+  
   ////////////////////////////////////////////////////  
   // So how can we figure out if we've never been powered on before?
   // Easy: just read the I2C GPIO registers for GP6, which is the *last stage* in the configuration.
@@ -359,7 +373,7 @@ void setup() {
       // NO INITIAL POWERON STARTUP
       DPRINTLN("RADIANT: Skipping initial poweron.");
     }
-  } else diedie(BM_ERR_STARTUP_I2C);
+  } else diedie(BM_ERR_STARTUP_I2C);  
   Serial.begin(1000000);
   Serial1.begin(1000000);
   cbIf.setStream(&Serial);
@@ -375,11 +389,22 @@ void setup() {
 
 unsigned long time_now = 0;
 int period = 1000;
+bool gpioHigh = false;
 
 void loop() {
   cbIf.update();
   fpIf.update();
   if (SerialUSB) usbIf.update();
+  if (millis() - time_now > period) {
+    time_now = millis();
+    if (gpioHigh) {
+        digitalWrite(PIN_LED, LOW);
+        gpioHigh = false;
+    } else {
+        digitalWrite(PIN_LED, HIGH);
+        gpioHigh = true;
+    }
+  }
 }
 
 uint32_t getStatus() {
@@ -400,6 +425,8 @@ uint32_t getStatus() {
 uint8_t tempBuffer[256];
 
 void onCbPacketReceived(const uint8_t *buffer, size_t size) {
+  // Packets have to be at least 4 bytes: addr addr addr data (on write).
+  if (size < 4) return;
   if (!(buffer[0] & 0x40)) {
     memcpy(tempBuffer, buffer, size);
     // not for us
@@ -452,7 +479,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
           // DACs don't have readback
         default:
           rsp = 0;      
-      }
+      } 
       tempBuffer[0] = buffer[0];
       tempBuffer[1] = buffer[1];
       tempBuffer[2] = buffer[2];
@@ -463,11 +490,90 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
       cbIf.send(tempBuffer, 7);
       if (SerialUSB) usbIf.send(tempBuffer, 7);
     } else {
+      uint32_t val;
+      val = buffer[3];
+      if (size > 4) val |= buffer[4] << 8;
+      if (size > 5) val |= buffer[5] << 16;
+      if (size > 6) val |= buffer[6] << 24;
+      switch(addr) {
+        // 0, 1, and 2 are read-only
+        // Control is harder. For now I'm only capturing the burst bit.
+        // I'm not convinced I'm going to keep the "blow things up" bits here anyway.
+        case 3: control_reg = val & 0x8; break;
+        // 4-8 are read-only
+        // SPI write. Only the low byte is used.
+        // It's software's job to handle the latch enable, which is an I2C GPIO pin.
+        case 9: SPI1.transfer(val & 0xFF); break;
+        case 16:
+        case 17:
+        case 18:
+        case 19:
+        case 20:
+        case 21:
+        case 22:
+          Wire.beginTransmission(i2c_gp[(addr-16)]);
+          Wire.write(val & 0xFF);
+          Wire.endTransmission();
+          break;
+        case 32:
+        case 33:
+        case 34:
+        case 35:
+        case 36:
+        case 37:
+        case 38:
+        case 39:
+        case 40:
+        case 41:
+        case 42:
+        case 43:
+        case 44:
+        case 45:
+        case 46:
+        case 47:
+        case 48:
+        case 49:
+        case 50:
+        case 51:
+        case 52:
+        case 53:
+        case 54:
+        case 55:
+          uint8_t ch = (addr-32) % 4;
+          uint8_t quad = (addr-32)/4;
+          ch = ch << 1;
+          // multi-write command
+          // byte 1: 0100 0 (ch) 0
+          // vref = 1, pd = 00, gx = 0
+          // byte 2: 1000 (val >> 8 & 0xF)
+          // byte 3: val & 0xFF
+          Wire.beginTransmission(I2C_DAC_BASE+quad+2);
+          Wire.write(0x40 | ch);
+          Wire.write(0x80 | ((val >> 8) & 0xF));
+          Wire.write(val & 0xFF);
+          Wire.endTransmission();
+          break;
+        case 56:
+        case 57:
+          val = val << 4;
+          Wire.beginTransmission(I2C_DAC_BASE + (addr - 56) );
+          // 2nd byte has command + powerdown stuff
+          // So now 010 00 00 0 = 0x40
+          // then (val >> 4) & 0xFF
+          // then (val << 4) & 0xF0
+          Wire.write(0x40);
+          Wire.write((val >> 8) & 0xFF);
+          Wire.write(val & 0xF0);
+          Wire.endTransmission();
+          break;
+        default: break;          
+      }      
       // don't do anything with writes yet
       tempBuffer[0] = buffer[0];
       tempBuffer[1] = buffer[1];
       tempBuffer[2] = buffer[2];
-      tempBuffer[3] = 4;
+      if (size > 7) tempBuffer[3] = 4;
+      else tempBuffer[3] = size - 3;
       cbIf.send(tempBuffer, 4);
       if (SerialUSB) usbIf.send(tempBuffer, 4);
     }
