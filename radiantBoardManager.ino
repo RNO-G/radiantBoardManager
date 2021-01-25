@@ -244,7 +244,9 @@ void setup() {
   pinMode(PGV31, INPUT_PULLUP);
   // other pullups
   pinMode(MGTDET, INPUT_PULLUP);
-  pinMode(SD_DETECT, INPUT_PULLUP);
+  // SD detect switch shorts G1<->P4 (SD_DETECT to VCC).
+  // So we pulldown here.
+  pinMode(SD_DETECT, INPUT_PULLDOWN);
   // enable clock by default
   digitalWrite(BM_EN_10MHZ, HIGH);
   pinMode(BM_EN_10MHZ, OUTPUT);
