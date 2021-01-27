@@ -426,6 +426,15 @@ uint32_t getStatus() {
 
 uint8_t tempBuffer[256];
 
+// I need to figure out a way to speed up the serial forwarding here.
+// Editing the PacketSerial handler should work since we can tell
+// if the packet's for us by either the first (if it's 01) or
+// second byte (if the first byte's not 01, if the next byte
+// does not have bit 6 set, it's not for us).
+// That means the overall delay is only increased by 1-2 bytes.
+//
+// On the return side I shouldn't even be running the handler.
+// Just forward every damn byte.
 void onCbPacketReceived(const uint8_t *buffer, size_t size) {
   // Packets have to be at least 4 bytes: addr addr addr data (on write).
   if (size < 4) return;
@@ -493,6 +502,9 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
       if (SerialUSB) usbIf.send(tempBuffer, 7);
     } else {
       uint32_t val;
+      uint8_t quad;
+      uint8_t ch;
+      
       val = buffer[3];
       if (size > 4) val |= buffer[4] << 8;
       if (size > 5) val |= buffer[5] << 16;
@@ -541,8 +553,8 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         case 53:
         case 54:
         case 55:
-          uint8_t ch = (addr-32) % 4;
-          uint8_t quad = (addr-32)/4;
+          ch = (addr-32) % 4;
+          quad = (addr-32)/4;
           ch = ch << 1;
           // multi-write command
           // byte 1: 0100 0 (ch) 0
@@ -569,8 +581,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
           Wire.endTransmission();
           break;
         default: break;          
-      }      
-      // don't do anything with writes yet
+      }
       tempBuffer[0] = buffer[0];
       tempBuffer[1] = buffer[1];
       tempBuffer[2] = buffer[2];
