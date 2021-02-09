@@ -9,11 +9,11 @@
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   0
+#define VER_REV   1
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
-#define DATE_MONTH 1
-#define DATE_DAY   25
+#define DATE_MONTH 2
+#define DATE_DAY   5
 #define DATE_YEAR  21
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
@@ -480,6 +480,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         case 21:
         case 22:
           Wire.beginTransmission(i2c_gp[(addr-16)]);
+          // select the input register
           Wire.write(0);
           if (Wire.endTransmission() == 0) {
             Wire.requestFrom(i2c_gp[(addr-16)], 1);
@@ -508,12 +509,13 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
       val = buffer[3];
       if (size > 4) val |= buffer[4] << 8;
       if (size > 5) val |= buffer[5] << 16;
-      if (size > 6) val |= buffer[6] << 24;
+      if (size > 6) val |= buffer[6] << 24;      
       switch(addr) {
         // 0, 1, and 2 are read-only
         // Control is harder. For now I'm only capturing the burst bit.
         // I'm not convinced I'm going to keep the "blow things up" bits here anyway.
-        case 3: control_reg = val & 0x8; break;
+        case 3: control_reg = val & 0x8; 
+                break;
         // 4-8 are read-only
         // SPI write. Only the low byte is used.
         // It's software's job to handle the latch enable, which is an I2C GPIO pin.
@@ -526,6 +528,8 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         case 21:
         case 22:
           Wire.beginTransmission(i2c_gp[(addr-16)]);
+          // select output register
+          Wire.write(1);
           Wire.write(val & 0xFF);
           Wire.endTransmission();
           break;
