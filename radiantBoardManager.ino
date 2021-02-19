@@ -5,6 +5,11 @@
 #include <flash_devices.h>
 #include <PacketSerial.h>
 
+// SPISettings for attenuator (0x24 write)
+SPISettings settingsAtten(4000000, LSBFIRST, SPI_MODE0);
+// SPISettings for ADF4351 (0x28 write)
+SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
+
 #include <Wire.h>
 
 #define VER_MAJOR 0
@@ -519,7 +524,20 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         // 4-8 are read-only
         // SPI write. Only the low byte is used.
         // It's software's job to handle the latch enable, which is an I2C GPIO pin.
-        case 9: SPI1.transfer(val & 0xFF); break;
+        // Register 9 is a 16-bit LSB write (for attenuator).
+        //            It's organized as (address)(data): so address is byte1, value is byte0.
+        // Register 10 is a 32-bit MSB write (for siggen).
+        //            It's organized as writing the 32-bit value as is.
+        case 9: SPI1.beginTransaction(settingsAtten);
+                SPI1.transfer(val & 0xFF);
+                val >>= 8;
+                SPI1.transfer(val & 0xFF); break;
+        case 10: SPI1.beginTransaction(settingsSigGen);
+                 // Need to invert the damn thing
+                 SPI1.transfer((val>>24) & 0xFF);
+                 SPI1.transfer((val>>16) & 0xFF);
+                 SPI1.transfer((val>>8) & 0xFF);
+                 SPI1.transfer(val & 0xFF); break;
         case 16:
         case 17:
         case 18:
