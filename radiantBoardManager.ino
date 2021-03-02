@@ -14,7 +14,7 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   1
+#define VER_REV   2
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 2
@@ -383,6 +383,10 @@ void setup() {
   } else diedie(BM_ERR_STARTUP_I2C);  
   Serial.begin(1000000);
   Serial1.begin(1000000);
+  // fp is the FPGA. Reset its handler.
+  for (uint8_t i=0;i<4;i++)
+    Serial1.write((byte)0x00);  
+  
   cbIf.setStream(&Serial);
   cbIf.setPacketHandler(&onCbPacketReceived);  
   fpIf.setStream(&Serial1);
