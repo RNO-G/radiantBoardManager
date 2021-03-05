@@ -14,7 +14,7 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   2
+#define VER_REV   3
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 2
@@ -75,8 +75,12 @@ Adafruit_SPIFlash flash(&flashTransport);
 FatFileSystem pythonfs;
 
 COBSPacketSerial cbIf;
-COBSPacketSerial fpIf;
 COBSPacketSerial usbIf;
+// This is really the OUTBOUND version
+COBSPacketSerial fpIf;
+
+
+bool usbActive = false;
 
 // Simple readline into a buffer of limited size.
 // This will *always* read a line, but it only stores up to len chars.
@@ -389,11 +393,12 @@ void setup() {
   
   cbIf.setStream(&Serial);
   cbIf.setPacketHandler(&onCbPacketReceived);  
-  fpIf.setStream(&Serial1);
-  fpIf.setPacketHandler(&onFpPacketReceived);
   usbIf.setStream(&SerialUSB);
   usbIf.setPacketHandler(&onCbPacketReceived);
-  
+  // No need to set handler, I'm never going to call update.
+  fpIf.setStream(&Serial1);
+
+  if (SerialUSB) usbActive = true;
   DPRINTLN("RADIANT: startup complete.");
 }
 
@@ -403,10 +408,32 @@ int period = 1000;
 bool gpioHigh = false;
 
 void loop() {
+  // Inbound packets.
   cbIf.update();
-  fpIf.update();
-  if (SerialUSB) usbIf.update();
+  if (usbActive) usbIf.update();
+
+  // Outbound bridge. Here we *can* avoid blocking: in *our* path we can't.
+  // Weird shit might happen if CB tries to throw packets freely in flight, so like,
+  // don't do that.
+  int fpAvailable = Serial1.available();
+  if (fpAvailable) {
+    int cbWriteSpace = Serial.availableForWrite();
+    if (usbActive) {
+      int usbWriteSpace = SerialUSB.availableForWrite();
+      if (usbWriteSpace < cbWriteSpace) cbWriteSpace = usbWriteSpace;
+    }
+    int toBridge = (cbWriteSpace < fpAvailable) ? cbWriteSpace : fpAvailable;
+    for (int i=0;i<toBridge;i++) {
+      uint8_t ch = Serial1.read();
+      Serial.write(ch);
+      if (usbActive) SerialUSB.write(ch);
+    }
+  }
+  // poll every second to see if the USB's still there
   if (millis() - time_now > period) {
+    if (SerialUSB) usbActive = true;
+    else usbActive = false;
+    
     time_now = millis();
     if (gpioHigh) {
         digitalWrite(PIN_LED, LOW);
@@ -444,7 +471,26 @@ uint8_t tempBuffer[256];
 //
 // On the return side I shouldn't even be running the handler.
 // Just forward every damn byte.
+uint8_t zeroPacketCount = 0;
 void onCbPacketReceived(const uint8_t *buffer, size_t size) {
+  // Zero-size packets are special.
+  if (!size) {
+    zeroPacketCount++;
+    // We do this at *three*, because the first one might've
+    // been eaten identifying a short packet.
+    // So imagine you write, and die. Then start up.
+    // First 0 you send kicks out attempting to parse a packet.
+    // You send 3 more.
+    // Then this trips and we reset.
+    if (zeroPacketCount == 3) {
+      Serial1.write((byte) 0x00);
+      Serial1.write((byte) 0x00);
+      Serial1.write((byte) 0x00);
+      Serial1.write((byte) 0x00);
+    }
+    return;
+  }
+  zeroPacketCount = 0;
   // Packets have to be at least 4 bytes: addr addr addr data (on write).
   if (size < 4) return;
   if (!(buffer[0] & 0x40)) {
@@ -509,7 +555,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
       tempBuffer[5] = (rsp >> 16) & 0xFF;
       tempBuffer[6] = (rsp >> 24) & 0xFF;
       cbIf.send(tempBuffer, 7);
-      if (SerialUSB) usbIf.send(tempBuffer, 7);
+      if (usbActive) usbIf.send(tempBuffer, 7);
     } else {
       uint32_t val;
       uint8_t quad;
@@ -614,14 +660,14 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
       if (size > 7) tempBuffer[3] = 4;
       else tempBuffer[3] = size - 3;
       cbIf.send(tempBuffer, 4);
-      if (SerialUSB) usbIf.send(tempBuffer, 4);
+      if (usbActive) usbIf.send(tempBuffer, 4);
     }
   }
 }
 
-void onFpPacketReceived(const uint8_t *buffer, size_t size) {
-  // not for us
-  memcpy(tempBuffer, buffer, size);
-  cbIf.send(tempBuffer, size);
-  if (SerialUSB) usbIf.send(tempBuffer, size);
-}
+//void onFpPacketReceived(const uint8_t *buffer, size_t size) {
+//  // not for us
+//  memcpy(tempBuffer, buffer, size);
+//  cbIf.send(tempBuffer, size);
+//  if (SerialUSB) usbIf.send(tempBuffer, size);
+//}
