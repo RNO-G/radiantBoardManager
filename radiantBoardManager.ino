@@ -79,6 +79,188 @@ COBSPacketSerial usbIf;
 // This is really the OUTBOUND version
 COBSPacketSerial fpIf;
 
+/*
+bool reassignUnlocked = false;
+
+#define BBSDA (47u)
+#define BBSCL (48u)
+
+// Start is assert SDA, then assert SCL
+// We add the extra "release" at the beginning
+// to allow a 'restart' to just be a new 'start'.
+void bbi2c_start() {
+  pinMode(BBSDA, INPUT);
+  pinMode(BBSCL, INPUT);
+  pinMode(BBSDA, OUTPUT);
+  pinMode(BBSCL, OUTPUT);  
+}
+
+// Stop is deassert SCL, deassert SDA
+// After an ACK, the slave releases
+// the SDA line. So we claim it to generate the stop.
+void bbi2c_stop() {
+  pinMode(BBSCL, OUTPUT);
+  pinMode(BBSDA, OUTPUT);
+  pinMode(BBSCL, INPUT);
+  pinMode(BBSDA, INPUT);
+}
+
+void bbi2c_write8(uint8_t val) {
+  for (uint8_t i=0;i<8;i++) {
+    if (val & 0x80) pinMode(BBSDA, OUTPUT);
+    else pinMode(BBSDA, INPUT);
+    pinMode(BBSCL, INPUT);
+    pinMode(BBSCL, OUTPUT);
+    val = val << 1;
+  }
+}
+
+bool bbi2c_getack() {
+  bool ack;
+  // clock high
+  pinMode(BBSCL, INPUT);
+  if (digitalRead(BBSDA)) ack = false;
+  else ack = true;
+  pinMode(BBSCL, OUTPUT);
+  return ack;
+}
+
+uint8_t bbi2c_read8(bool last) {
+  uint8_t val = 0;
+  for (uint8_t i=0;i<8;i++) {
+    val = val << 1;
+    pinMode(BBSCL, INPUT);
+    if (digitalRead(BBSDA)) val |= 0x1;
+    pinMode(BBSCL, OUTPUT);
+  }
+  if (last) pinMode(BBSDA, INPUT);   
+  else pinMode(BBSDA, INPUT);
+  pinMode(BBSCL, INPUT);
+  pinMode(BBSCL, OUTPUT);
+}
+
+// this is ALSO SPI1
+#define PIN_LDAC (50u)
+
+#define REASSIGN_KEY 0x44332211
+
+uint32_t reassignResult = 0;
+
+void reassignUnlock(uint32 key) {
+  if (key == REASSIGN_KEY) {
+    reassignUnlocked = true;
+    reassignResult = 0;
+  } else {
+    reassignUnlocked = false;
+  }
+}
+
+uint32_t reassignQuadBits(uint8_t curBits,
+                          uint8_t newBits) {
+  if (!reassignUnlocked) {
+    reassignResult = 0xDEADBEEF;
+    return;                            
+  }
+  Wire.end();
+  SPI1.end();
+  pinMode(BBSCL, INPUT);
+  pinMode(BBSDA, INPUT);
+  pinMode(PIN_LDAC, OUTPUT);
+  digitalWrite(PIN_LDAC, HIGH);
+  bbi2c_start();
+  bbi2c_write8(0xC0 | (curBits << 1));
+  if (bbi2c_getack()) {
+    DPRINTLN("reassignQuadBits: NACK at addr");
+    reassignResult = 0xFFFFFFFF;
+    bbi2c_stop();
+    Wire.begin();
+    SPI1.begin();    
+    return;
+  }
+  bbi2c_write8(0x60 | (curBits << 2) | 0x1);
+  digitalWrite(PIN_LDAC, LOW);
+  if (bbi2c_getack()) {
+    DPRINTLN("reassignQuadBits: NACK at addr");
+    reassignResult = 0xFFFFFFFF;
+    bbi2c_stop();
+    Wire.begin();
+    SPI1.begin();    
+    return;    
+  }
+  bbi2c_write8(0x60 | (newBits << 2) | 0x2 );
+  if (bbi2c_getack()) {
+    DPRINTLN("reassignQuadBits: NACK at newbits");
+    reassignResult = 0xFFFFFFFF;
+    bbi2c_stop();
+    Wire.begin();
+    SPI1.begin();    
+    return;      
+  }
+  bbi2c_write8(0x60 | (newBits << 2) | 0x3);
+  if (bbi2c_getack()) {
+    DPRINTLN("reassignQuadBits: NACK at 2nd newbits");
+    reassignResult = 0xFFFFFFFF;
+    bbi2c_stop();
+    Wire.begin();
+    SPI1.begin();
+    return;
+  }
+  bbi2c_stop();
+  Wire.begin();
+  SPI1.begin();
+  reassignResult = 1;
+}
+
+uint32_t getQuadBits() {
+  uint32_t ret = 0xFFFFFFFF;
+  if (!reassignUnlocked) return 0xDEADBEEF;
+  // getQuadBits ASSUMES THAT YOU'VE SELECTED THE DAMN QUAD BY PUTTING IT
+  // IN BIST MODE YOURSELF!!!
+  // We have end()
+  Wire.end();  
+  SPI1.end();
+  pinMode(BBSCL, INPUT);
+  pinMode(BBSDA, INPUT);
+  pinMode(PIN_LDAC, OUTPUT);
+  digitalWrite(PIN_LDAC, HIGH);
+
+  bbi2c_start();
+  bbi2c_write8( 0x0 );
+  if (bbi2c_getack()) {
+    DPRINTLN("getQuadBits: NACK at GC");
+    bbi2c_stop();
+    Wire.begin();
+    SPI1.begin();
+    return ret;
+  }
+  bbi2c_write8( 0x0C );
+  // Now lower LDAC
+  digitalWrite(PIN_LDAC, LOW);
+  if (bbi2c_getack()) {
+    DPRINTLN("getQuadBits: NACK at GC CMD");
+    bbi2c_stop();
+    Wire.begin();
+    SPI1.begin();
+    return ret;
+  }
+  // restart
+  bbi2c_start();
+  // this address is *never* used
+  bbi2c_write8(0xCF);
+  if (bbi2c_getack()) {
+    DPRINTLN("getQuadBits: NACK at 3rd byte");
+    bbi2c_stop();
+    Wire.begin();
+    SPI1.begin();
+    return ret;
+  }
+  ret = bbi2c_read8(true);
+  bbi2c_stop();
+  Wire.begin();
+  SPI1.begin();
+  return ret;
+}
+*/
 
 bool usbActive = false;
 
@@ -543,7 +725,91 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
             else rsp = 0xFFFFFFFF;
           } else rsp = 0xFFFFFFFF;
           break;
-          // DACs don't have readback
+          // Readback. Note that top byte should indicate
+          // that a read actually worked, as there's no way it can be 0xFF
+        case 32:
+        case 33:
+        case 34:
+        case 35:
+        case 36:
+        case 37:
+        case 38:
+        case 39:
+        case 40:
+        case 41:
+        case 42:
+        case 43:
+        case 44:
+        case 45:
+        case 46:
+        case 47:
+        case 48:
+        case 49:
+        case 50:
+        case 51:
+        case 52:
+        case 53:
+        case 54:
+        case 55:
+        case 160:
+        case 161:
+        case 162:
+        case 163:
+        case 164:
+        case 165:
+        case 166:
+        case 167:
+        case 168:
+        case 169:
+        case 170:
+        case 171:
+        case 172:
+        case 173:
+        case 174:
+        case 175:
+        case 176:
+        case 177:
+        case 178:
+        case 179:
+        case 180:
+        case 181:
+        case 182:
+        case 183:
+          // picking off the channel/quad bits is just bit-grabbing:
+          // 32-35 are quad 0 = 0010 0000
+          // 36-39 are quad 1 = 0010 0100
+          // 40-43 are quad 2 = 0010 1000
+          // etc.
+          // So it's just ((addr & 0x1C)>>2)
+          Wire.requestFrom(I2C_DAC_BASE+((addr & 0x1C)>>2)+2, 12);
+          if (Wire.available() == 12) {
+            uint8_t dat[12];
+            uint8_t* p;                        
+            for (uint8_t i=0;i<12;i++) dat[i] = Wire.read();
+            if (addr & 0x80) p = &dat[3];
+            else p = &dat[0];
+            p += 6*(addr & 0x3);
+            rsp = *p++ << 16;
+            rsp |= *p++ << 8;
+            rsp |= *p;            
+          } else rsp=0xFFFFFFFF;
+         break;      
+        case 56:
+        case 57:
+        case 184:
+        case 185:
+         // implement readback
+         Wire.requestFrom(I2C_DAC_BASE + ((addr & 0x7F)-56), 5);
+         if (Wire.available() == 5) {
+            uint8_t dat[5];
+            for (uint8_t i=0;i<5;i++) dat[i] = Wire.read();
+            if (addr & 0x80) {
+              rsp = (dat[3] << 8) | dat[4];
+            } else {
+              rsp = (dat[0] << 16) | (dat[1] << 8) | (dat[2]);
+            }                     
+         } else rsp = 0xFFFFFFFF;
+         break;
         default:
           rsp = 0;      
       } 
