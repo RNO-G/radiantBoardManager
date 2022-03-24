@@ -192,7 +192,7 @@ uint16_t myLoop;
 #define BM_ERR_STARTUP_SPI    8
 #define BM_ERR_STARTUP_FAT    9
 
-const uint8_t diedieHeader[6] = { 0x7, 0xff, 0xff, 0xff, 0xff, 0x1 };
+const uint8_t diedieHeader[4] = { 0x5, 0xff, 0xff, 0xff };
 
 void diedie(uint8_t errcode) {
   // need to let the CB know, probably a repeating packet.
