@@ -27,10 +27,12 @@ const uint32_t ver = ((DATE_ENC << 16) | (VER_ENC));
 
 
 #ifdef _VARIANT_RADIANT_V2_
+#warning "RadiantV2 build"
 #define I2C_CLOCK  0x70
 #define I2C_GPBASE 0x38
 #endif
 #ifdef _VARIANT_RADIANT_V1_
+#warning "RadiantV1 build"
 #define I2C_CLOCK 0x71
 #define I2C_GPBASE 0x20
 #endif
@@ -361,7 +363,7 @@ void setup() {
       // 4: Set up the LAB4 GPIOs. If we're a RADIANTv1 we need to enable pulls
       //    first.
       for (unsigned int i=0;i<6;i++) {
-#ifndef RADIANTV2
+#ifdef _VARIANT_RADIANT_V1_
         Wire.beginTransmission(i2c_gp[i]);
         Wire.write(0x4);
         Wire.write(0xC0);
