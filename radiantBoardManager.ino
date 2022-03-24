@@ -14,7 +14,7 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   4
+#define VER_REV   5
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 3
@@ -192,10 +192,18 @@ uint16_t myLoop;
 #define BM_ERR_STARTUP_SPI    8
 #define BM_ERR_STARTUP_FAT    9
 
-void diedie(uint32_t errcode) {
+const uint8_t diedieHeader[6] = { 0x7, 0xff, 0xff, 0xff, 0xff, 0x1 };
+
+void diedie(uint8_t errcode) {
   // need to let the CB know, probably a repeating packet.
   // talk to Cosmin about this
-  while (1) {
+  // all diedies happen before starting serial
+  Serial.begin(1000000); 
+  while (1) {    
+    for (uint8_t i=0;i<sizeof(diedieHeader);i++)
+      Serial.write(diedieHeader[i]);
+    Serial.write(errcode);    
+    Serial.write((uint8_t) 0x0);
     delay(50);
     DPRINT("DIEDIE: ");
     DPRINTLN(errcode);
