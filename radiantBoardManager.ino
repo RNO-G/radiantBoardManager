@@ -14,7 +14,7 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   6
+#define VER_REV   7
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 3
@@ -603,7 +603,8 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         // Bit 17 = TMS (when JTAGEN)
         // Bit 18 = TDI (when JTAGEN)
         // Bit 19 = TDO (when JTAGEN)
-        case 3: control_reg = val & 0x8;
+        case 3: control_reg &= ~0x8;
+                control_reg |= val & 0x8;
                 // handle PROG_B. If it's currently set,
                 // check to see if we release. If it's desired to set,
                 // drive it.
@@ -629,6 +630,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
                   }
                 }
                 // check to see if we want to keep running
+                // update first, then claim
                 if (val & CONTROL_JTAGEN) {
                   if (val & CONTROL_JTAG_TMS) digitalWrite(JTAG_TMS, 1);
                   else digitalWrite(JTAG_TMS, 0);
@@ -643,6 +645,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
                   
                   // check to see if we need to acquire
                   if (!(control_reg & CONTROL_JTAGEN)) {
+                    control_reg |= CONTROL_JTAGEN;
                     // yes, so drive outputs
                     pinMode(JTAG_TMS, OUTPUT);
                     pinMode(JTAG_TDI, OUTPUT);
