@@ -18,7 +18,7 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 3
-#define DATE_DAY   24
+#define DATE_DAY   25
 #define DATE_YEAR  22
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
@@ -632,6 +632,17 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
                 // check to see if we want to keep running
                 // update first, then claim
                 if (val & CONTROL_JTAGEN) {
+
+                  // check to see if we need to acquire
+                  if (!(control_reg & CONTROL_JTAGEN)) {
+                    // yes, so drive outputs
+                    pinMode(JTAG_TMS, OUTPUT);
+                    pinMode(JTAG_TDI, OUTPUT);
+                    pinMode(JTAG_TCK, OUTPUT);
+                  }                  
+
+                  control_reg |= CONTROL_JTAGEN; 
+ 
                   if (val & CONTROL_JTAG_TMS) digitalWrite(JTAG_TMS, 1);
                   else digitalWrite(JTAG_TMS, 0);
                   if (val & CONTROL_JTAG_TDI) digitalWrite(JTAG_TDI, 1);
