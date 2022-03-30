@@ -14,11 +14,11 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   9
+#define VER_REV   10
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 3
-#define DATE_DAY   28
+#define DATE_DAY   30
 #define DATE_YEAR  22
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
@@ -250,10 +250,10 @@ void diedie(uint8_t errcode) {
 
 #define BMGPIO2 33
 
-#define JTAG_TDO 26
-#define JTAG_TDI 27
-#define JTAG_TMS 28
-#define JTAG_TCK 29
+#define JTAG_TDO 29
+#define JTAG_TDI 30
+#define JTAG_TMS 31
+#define JTAG_TCK 32
 
 #define FPGA_PROGB 21
 
