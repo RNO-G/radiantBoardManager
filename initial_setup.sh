@@ -32,6 +32,7 @@ fi
 arduino-cli core update-index  
 arduino-cli lib install PacketSerial
 arduino-cli lib install "AdaFruit SPIFlash"
+arduino-cli lib install "SAMD_TimerInterrupt"
 arduino-cli core install arduino:samd
 
 mkdir -p ${ARDUINO_DIR}/hardware

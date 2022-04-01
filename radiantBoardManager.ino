@@ -4,6 +4,7 @@
 #include <Adafruit_SPIFlashBase.h>
 #include <flash_devices.h>
 #include <PacketSerial.h>
+#include <SAMDTimerInterrupt.h>
 
 // SPISettings for attenuator (0x24 write)
 SPISettings settingsAtten(4000000, LSBFIRST, SPI_MODE0);
@@ -14,11 +15,11 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   10
+#define VER_REV   11
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
-#define DATE_MONTH 3
-#define DATE_DAY   30
+#define DATE_MONTH 4
+#define DATE_DAY   1
 #define DATE_YEAR  22
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
@@ -267,6 +268,26 @@ void diedie(uint8_t errcode) {
 #define CONTROL_JTAG_TDO     0x80000
 #define CONTROL_JTAG_MASK    (CONTROL_JTAG_TCK | CONTROL_JTAG_TDI | CONTROL_JTAG_TMS)
 
+
+SAMDTimer tc(TIMER_TC3) ;
+int timer_pin = BMGPIO2; 
+int timer_state = true; 
+
+void timerHandler()
+{
+  digitalWrite(timer_pin, timer_state); 
+  timer_state = !timer_state; 
+}
+
+void timerSetup(int interval) 
+{
+  pinMode(timer_pin, OUTPUT); 
+  if (interval) 
+  {
+    tc.attachInterruptInterval(interval * 1000, timerHandler); 
+  }
+}
+
 void setup() {  
   // The powergoods all need pullups.
   pinMode(PGV10, INPUT_PULLUP);
@@ -420,6 +441,9 @@ void setup() {
   usbIf.setPacketHandler(&onCbPacketReceived);
   // No need to set handler, I'm never going to call update.
   fpIf.setStream(&Serial1);
+
+  //set up timer
+  timerSetup(1000); //1 s timer, will change state then, so really 2 second interval
 
   if (SerialUSB) usbActive = true;
   DPRINTLN("RADIANT: startup complete.");
@@ -760,3 +784,5 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
 //  cbIf.send(tempBuffer, size);
 //  if (SerialUSB) usbIf.send(tempBuffer, size);
 //}
+
+
