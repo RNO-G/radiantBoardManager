@@ -15,7 +15,7 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   11
+#define VER_REV   12
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 4
@@ -25,6 +25,10 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 const uint32_t ident = 'RDBM';
 const uint32_t ver = ((DATE_ENC << 16) | (VER_ENC));
+
+
+//#define ENABLE_TIMER_OUTPUT
+
 
 
 #ifdef _VARIANT_RADIANT_V2_
@@ -269,6 +273,7 @@ void diedie(uint8_t errcode) {
 #define CONTROL_JTAG_MASK    (CONTROL_JTAG_TCK | CONTROL_JTAG_TDI | CONTROL_JTAG_TMS)
 
 
+#ifdef ENABLE_TIMER_OUTPUT
 SAMDTimer tc(TIMER_TC3) ;
 int timer_pin = BMGPIO2; 
 int timer_state = true; 
@@ -287,6 +292,7 @@ void timerSetup(int interval)
     tc.attachInterruptInterval(interval * 1000, timerHandler); 
   }
 }
+#endif
 
 void setup() {  
   // The powergoods all need pullups.
@@ -442,8 +448,10 @@ void setup() {
   // No need to set handler, I'm never going to call update.
   fpIf.setStream(&Serial1);
 
+#ifdef ENABLE_TIMER_OUTPUT
   //set up timer
   timerSetup(1000); //1 s timer, will change state then, so really 2 second interval
+#endif
 
   if (SerialUSB) usbActive = true;
   DPRINTLN("RADIANT: startup complete.");
