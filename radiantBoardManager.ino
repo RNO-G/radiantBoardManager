@@ -4,7 +4,6 @@
 #include <Adafruit_SPIFlashBase.h>
 #include <flash_devices.h>
 #include <PacketSerial.h>
-#include <SAMDTimerInterrupt.h>
 
 // SPISettings for attenuator (0x24 write)
 SPISettings settingsAtten(4000000, LSBFIRST, SPI_MODE0);
@@ -15,7 +14,7 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   12
+#define VER_REV   13
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 4
@@ -25,10 +24,6 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 const uint32_t ident = 'RDBM';
 const uint32_t ver = ((DATE_ENC << 16) | (VER_ENC));
-
-
-//#define ENABLE_TIMER_OUTPUT
-
 
 
 #ifdef _VARIANT_RADIANT_V2_
@@ -272,27 +267,11 @@ void diedie(uint8_t errcode) {
 #define CONTROL_JTAG_TDO     0x80000
 #define CONTROL_JTAG_MASK    (CONTROL_JTAG_TCK | CONTROL_JTAG_TDI | CONTROL_JTAG_TMS)
 
+int timer_mode_pin = BMGPIO2; 
+int in_timer_mode = 0; 
+void enterTimerMode(); 
+void setupSerial(); 
 
-#ifdef ENABLE_TIMER_OUTPUT
-SAMDTimer tc(TIMER_TC3) ;
-int timer_pin = BMGPIO2; 
-int timer_state = true; 
-
-void timerHandler()
-{
-  digitalWrite(timer_pin, timer_state); 
-  timer_state = !timer_state; 
-}
-
-void timerSetup(int interval) 
-{
-  pinMode(timer_pin, OUTPUT); 
-  if (interval) 
-  {
-    tc.attachInterruptInterval(interval * 1000, timerHandler); 
-  }
-}
-#endif
 
 void setup() {  
   // The powergoods all need pullups.
@@ -435,6 +414,21 @@ void setup() {
       DPRINTLN("RADIANT: Skipping initial poweron.");
     }
   } else diedie(BM_ERR_STARTUP_I2C);  
+
+  //check for timerMode 
+
+  if (digitalRead(timer_mode_pin))
+  {
+    enterTimerMode(); 
+		//don't set up UART 
+  }
+	else setupSerial(); 
+	
+}
+
+
+void setupSerial()
+{
   Serial.begin(1000000);
   Serial1.begin(1000000);
   // fp is the FPGA. Reset its handler.
@@ -448,11 +442,6 @@ void setup() {
   // No need to set handler, I'm never going to call update.
   fpIf.setStream(&Serial1);
 
-#ifdef ENABLE_TIMER_OUTPUT
-  //set up timer
-  timerSetup(1000); //1 s timer, will change state then, so really 2 second interval
-#endif
-
   if (SerialUSB) usbActive = true;
   DPRINTLN("RADIANT: startup complete.");
 }
@@ -463,6 +452,20 @@ int period = 1000;
 bool gpioHigh = false;
 
 void loop() {
+
+	if (in_timer_mode) 
+	{
+	
+		// go back to normal mode if the timer mode pin is down 
+		if (!digitalRead(timer_mode_pin))
+		{
+			in_timer_mode = 0; 
+			setupSerial(); 
+		}
+
+		return; 
+  }
+
   // Inbound packets.
   cbIf.update();
   if (usbActive) usbIf.update();
@@ -792,5 +795,68 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
 //  cbIf.send(tempBuffer, size);
 //  if (SerialUSB) usbIf.send(tempBuffer, size);
 //}
+
+
+
+// Just output a 1 Hz square wave instead of doing anything else, until 
+//based on https://shawnhymel.com/1710/arduino-zero-samd21-raw-pwm-using-cmsis/
+void enterTimerMode() 
+{
+
+
+  // Enable and configure generic clock generator 4
+  GCLK->GENCTRL.reg = GCLK_GENCTRL_IDC |          // Improve duty cycle
+                      GCLK_GENCTRL_GENEN |        // Enable generic clock gen
+                      GCLK_GENCTRL_SRC_DFLL48M |  // Select 48MHz as source
+                      GCLK_GENCTRL_ID(4);         // Select GCLK4
+  while (GCLK->STATUS.bit.SYNCBUSY);              // Wait for synchronization
+
+  // Set clock divider of 48 to generic clock generator 4
+  GCLK->GENDIV.reg = GCLK_GENDIV_DIV(48) |         // Divide 48 MHz by 48, so it's 1 MHz 
+                     GCLK_GENDIV_ID(4);           // Apply to GCLK4 4
+  while (GCLK->STATUS.bit.SYNCBUSY);              // Wait for synchronization
+  
+  // Enable GCLK4 and connect it to and TCC2
+  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN |        // Enable generic clock
+                      GCLK_CLKCTRL_GEN_GCLK4 |    // Select GCLK4
+                      GCLK_CLKCTRL_ID_TCC2_TC3;       // Feed GCLK4 to TCC2
+  while (GCLK->STATUS.bit.SYNCBUSY);              // Wait for synchronization
+
+  // Divide counter by 1 giving 1 MHz (1 us) on each TCC2 tick
+  TCC2->CTRLA.reg |= TCC_CTRLA_PRESCALER(TCC_CTRLA_PRESCALER_DIV1_Val);
+
+  // Use "Normal PWM" (single-slope PWM): count up to PER, match on CC[n]
+  TCC2->WAVE.reg = TCC_WAVE_WAVEGEN_NPWM;         // Select NPWM as waveform
+  while (TCC2->SYNCBUSY.bit.WAVE);                // Wait for synchronization
+
+	int period = 1000000; 
+  // Set the period (the number to count to (TOP) before resetting timer)
+  TCC2->PER.reg = period;
+  while (TCC2->SYNCBUSY.bit.PER);
+
+  // Set PWM signal to output 50% duty cycle
+  // n for CC[n] is determined by n = x % 4 where x is from WO[x]
+  TCC2->CC[0].reg = period / 2;
+  while (TCC2->SYNCBUSY.bit.CC2);
+
+  // Configure PA00 (D10 on Arduino Zero) to be output
+  PORT->Group[PORTA].DIRSET.reg = PORT_PA00;      // Set pin as output
+  PORT->Group[PORTA].OUTCLR.reg = PORT_PA00;      // Set pin to low
+
+  // Enable the port multiplexer for PA00
+  PORT->Group[PORTA].PINCFG[0].reg |= PORT_PINCFG_PMUXEN;
+
+  // Connect TCC2 timer to PA00. Function E is TCC2/WO[0] for PA00.
+  // Odd pin num (2*n + 1): use PMUXO
+  // Even pin num (2*n): use PMUXE
+  PORT->Group[PORTA].PMUX[0].reg = PORT_PMUX_PMUXE_E;
+
+  // Enable output (start PWM)
+  TCC2->CTRLA.reg |= (TCC_CTRLA_ENABLE);
+  while (TCC2->SYNCBUSY.bit.ENABLE);              // Wait for synchronization
+	
+	in_timer_mode = 1; 
+}
+
 
 
