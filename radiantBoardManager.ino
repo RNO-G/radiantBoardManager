@@ -277,7 +277,7 @@ struct
 {
   uint32_t counter; 
   uint32_t when; 
-  uint32_t when_high; //top 14 bits of when
+  uint32_t when_high : 14; //top 14 bits of when
   uint32_t pin : 6; 
   uint32_t state : 12; 
 } interrupt_history[INTERRUPT_HISTORY_SIZE]; 
