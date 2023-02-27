@@ -277,9 +277,16 @@ struct
 {
   uint32_t counter; 
   uint32_t when; 
-  uint32_t when_high : 14; //top 14 bits of when
-  uint32_t pin : 6; 
-  uint32_t state : 12; 
+  union
+  {
+    struct
+    {
+      uint32_t when_high : 14; //top 14 bits of when
+      uint32_t pin : 6; 
+      uint32_t state : 12; 
+    } bits; 
+    uint32_t u; 
+  } payload; 
 } interrupt_history[INTERRUPT_HISTORY_SIZE]; 
 
 volatile uint32_t interrupt_counter = 0; 
@@ -303,9 +310,9 @@ X(PGV31) \
     uint32_t counter = (interrupt_counter++); \
     int which = counter % INTERRUPT_HISTORY_SIZE; \
     interrupt_history[which].when = 0; \
-    interrupt_history[which].when_high = 0; \
-    interrupt_history[which].pin = pinnum; \
-    interrupt_history[which].state = digitalRead(pinnum); \
+    interrupt_history[which].payload.bits.when_high = 0; \
+    interrupt_history[which].payload.bits.pin = pinnum; \
+    interrupt_history[which].payload.bits.state = digitalRead(pinnum); \
     interrupt_history[which].counter = counter; \
   }
 
@@ -565,9 +572,9 @@ void loop() {
                          
     for (int i = 0; i < INTERRUPT_HISTORY_SIZE; i++) 
     {
-      if  (interrupt_history[i].pin && !interrupt_history[i].when && !interrupt_history[i].when_high) 
+      if  (interrupt_history[i].payload.bits.pin && !interrupt_history[i].when && !interrupt_history[i].payload.bits.when_high) 
         interrupt_history[i].when = when; 
-        interrupt_history[i].when_high = time_overflow_counter; 
+        interrupt_history[i].payload.bits.when_high = time_overflow_counter & 0x3fff; 
     }
   }
 }
@@ -676,6 +683,31 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
           } else rsp = 0xFFFFFFFF;
           break;
           // DACs don't have readback
+        case 58: 
+          rsp = millis(); 
+          break;
+        case 59: 
+          rsp = millis() < time_now ? time_overflow_counter+1 : time_overflow_counter; 
+          break;
+        case 64: case 67: case 70: case 73:
+        case 76: case 79: case 82: case 85:
+        case 88: case 91: case 94: case 97:
+        case 100: case 103: case 106: case 109:
+          rsp = interrupt_history[(addr-64)/3].counter; 
+          break; 
+        case 65: case 68: case 71: case 74:
+        case 77: case 80: case 83: case 86:
+        case 89: case 92: case 95: case 98:
+        case 101: case 104: case 107: case 110:
+          rsp = interrupt_history[(addr-64)/3].when; 
+          break; 
+        case 66: case 69: case 72: case 75:
+        case 78: case 81: case 84: case 87:
+        case 90: case 93: case 96: case 99:
+        case 102: case 105: case 108: case 111:
+          rsp = interrupt_history[(addr-64)/3].payload.u; 
+          break; 
+
         default:
           rsp = 0;      
       } 
@@ -845,6 +877,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
           Wire.write(val & 0xF0);
           Wire.endTransmission();
           break;
+          
         default: break;          
       }
       tempBuffer[0] = buffer[0];
