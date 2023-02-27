@@ -14,12 +14,12 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   13
+#define VER_REV   14
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
-#define DATE_MONTH 4
-#define DATE_DAY   1
-#define DATE_YEAR  22
+#define DATE_MONTH 2
+#define DATE_DAY   27
+#define DATE_YEAR  23
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
 const uint32_t ident = 'RDBM';
@@ -272,6 +272,47 @@ int in_timer_mode = 0;
 void enterTimerMode(); 
 void setupSerial(); 
 
+#define INTERRUPT_HISTORY_SIZE 16
+struct 
+{
+  uint32_t counter; 
+  uint32_t when; 
+  uint32_t when_high; //top 14 bits of when
+  uint32_t pin : 6; 
+  uint32_t state : 12; 
+} interrupt_history[INTERRUPT_HISTORY_SIZE]; 
+
+volatile uint32_t interrupt_counter = 0; 
+volatile int must_fill_interrupt_times = 0; 
+
+// xmacro for interrupt pins 
+
+#define INTERRUPT_PINS \
+X(PGV10) \
+X(PGV25) \
+X(PGV26) \
+X(PGV18) \
+X(PGV31) \
+
+
+//hopefuly this isn't too much for an ISR... 
+#define X(pinnum)   \
+  void interrupt_fn_##pinnum() \
+  {                         \
+    must_fill_interrupt_times=1; \
+    uint32_t counter = (interrupt_counter++); \
+    int which = counter % INTERRUPT_HISTORY_SIZE; \
+    interrupt_history[which].when = 0; \
+    interrupt_history[which].when_high = 0; \
+    interrupt_history[which].pin = pinnum; \
+    interrupt_history[which].state = digitalRead(pinnum); \
+    interrupt_history[which].counter = counter; \
+  }
+
+INTERRUPT_PINS
+#undef X
+
+
 
 void setup() {  
   // The powergoods all need pullups.
@@ -415,6 +456,14 @@ void setup() {
     }
   } else diedie(BM_ERR_STARTUP_I2C);  
 
+
+  // set up interrupts on PG pins
+
+#define X(pin) attachInterrupt(digitalPinToInterrupt(pin), interrupt_fn_##pin, CHANGE); 
+INTERRUPT_PINS
+#undef X 
+ 
+
   //check for timerMode 
 
   if (digitalRead(timer_mode_pin))
@@ -422,7 +471,11 @@ void setup() {
     enterTimerMode(); 
 		//don't set up UART 
   }
-	else setupSerial(); 
+	else 
+  {
+    setupSerial(); 
+
+  }
 	
 }
 
@@ -448,6 +501,7 @@ void setupSerial()
 
 
 unsigned long time_now = 0;
+uint16_t time_overflow_counter = 0; 
 int period = 1000;
 bool gpioHigh = false;
 
@@ -487,18 +541,33 @@ void loop() {
       if (usbActive) SerialUSB.write(ch);
     }
   }
+  unsigned long when = millis(); 
   // poll every second to see if the USB's still there
-  if (millis() - time_now > period) {
+  if (when - time_now > period) {
     if (SerialUSB) usbActive = true;
     else usbActive = false;
     
-    time_now = millis();
+    if (when < time_now) time_overflow_counter++; 
+    time_now = when; 
     if (gpioHigh) {
         digitalWrite(PIN_LED, LOW);
         gpioHigh = false;
     } else {
         digitalWrite(PIN_LED, HIGH);
         gpioHigh = true;
+    }
+  }
+
+  if (must_fill_interrupt_times) 
+  {
+    must_fill_interrupt_times = 0; // there is a small race condition here, but I think it doesn't matter
+                                   // and there are no atomic ops on the Cortex-M0 anyway 
+                         
+    for (int i = 0; i < INTERRUPT_HISTORY_SIZE; i++) 
+    {
+      if  (interrupt_history[i].pin && !interrupt_history[i].when && !interrupt_history[i].when_high) 
+        interrupt_history[i].when = when; 
+        interrupt_history[i].when_high = time_overflow_counter; 
     }
   }
 }
