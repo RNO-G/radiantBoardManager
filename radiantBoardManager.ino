@@ -534,6 +534,7 @@ bool gpioHigh = false;
 
 void loop() {
 
+#ifdef ENABLE_TIMER_MODE
 	if (in_timer_mode) 
 	{
 	
@@ -546,6 +547,7 @@ void loop() {
 
 		return; 
   }
+#endif
 
   // Inbound packets.
   cbIf.update();
@@ -925,6 +927,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
 //}
 
 
+#ifdef ENABLE_TIMER_MODE
 
 // Just output a 1 Hz square wave instead of doing anything else, until 
 //based on https://shawnhymel.com/1710/arduino-zero-samd21-raw-pwm-using-cmsis/
@@ -988,3 +991,4 @@ void enterTimerMode()
 
 
 
+#endif
