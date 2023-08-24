@@ -14,17 +14,23 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   14
+#define VER_REV   15
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
-#define DATE_MONTH 2
-#define DATE_DAY   27
+#define DATE_MONTH 8
+#define DATE_DAY   24
 #define DATE_YEAR  23
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
 const uint32_t ident = 'RDBM';
 const uint32_t ver = ((DATE_ENC << 16) | (VER_ENC));
 
+#ifdef _VARIANT_RADIANT_V3_
+#warning "RadiantV3 build"
+#define I2C_CLOCK  0x70
+#define I2C_GPBASE 0x38
+#endif
+#
 
 #ifdef _VARIANT_RADIANT_V2_
 #warning "RadiantV2 build"
@@ -257,6 +263,9 @@ void diedie(uint8_t errcode) {
 
 #define FPGA_PROGB 21
 
+// new features, disabled by default for now (can enable at compile time if you want) 
+//#define ENABLE_INTERRUPT_HISTORY 
+//#define ENABLE_TIMER_MODE
 
 // control bits
 #define CONTROL_FPGA_PROGRAM 0x100
@@ -267,11 +276,14 @@ void diedie(uint8_t errcode) {
 #define CONTROL_JTAG_TDO     0x80000
 #define CONTROL_JTAG_MASK    (CONTROL_JTAG_TCK | CONTROL_JTAG_TDI | CONTROL_JTAG_TMS)
 
+#ifdef ENABLE_TIMER_MODE
 int timer_mode_pin = BMGPIO2; 
 int in_timer_mode = 0; 
 void enterTimerMode(); 
+#endif
 void setupSerial(); 
 
+#ifdef ENABLE_INTERRUPT_HISTORY
 #define INTERRUPT_HISTORY_SIZE 16
 struct 
 {
@@ -320,6 +332,7 @@ INTERRUPT_PINS
 #undef X
 
 
+#endif 
 
 void setup() {  
   // The powergoods all need pullups.
@@ -464,13 +477,17 @@ void setup() {
   } else diedie(BM_ERR_STARTUP_I2C);  
 
 
+#ifdef ENABLE_INTERRUPT_HISTORY
   // set up interrupts on PG pins
 
 #define X(pin) attachInterrupt(digitalPinToInterrupt(pin), interrupt_fn_##pin, CHANGE); 
 INTERRUPT_PINS
 #undef X 
+
+#endif
  
 
+#ifdef ENABLE_TIMER_MODE
   //check for timerMode 
 
   if (digitalRead(timer_mode_pin))
@@ -481,8 +498,11 @@ INTERRUPT_PINS
 	else 
   {
     setupSerial(); 
-
   }
+#else
+  setupSerial(); 
+
+#endif
 	
 }
 
@@ -565,6 +585,8 @@ void loop() {
     }
   }
 
+#ifdef ENABLE_INTERRUPT_HISTORY
+
   if (must_fill_interrupt_times) 
   {
     must_fill_interrupt_times = 0; // there is a small race condition here, but I think it doesn't matter
@@ -577,6 +599,8 @@ void loop() {
         interrupt_history[i].payload.bits.when_high = time_overflow_counter & 0x3fff; 
     }
   }
+#endif 
+
 }
 
 uint32_t getStatus() {
@@ -689,6 +713,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         case 59: 
           rsp = millis() < time_now ? time_overflow_counter+1 : time_overflow_counter; 
           break;
+#ifdef ENABLE_INTERRUPT_HISTORY
         case 64: case 67: case 70: case 73:
         case 76: case 79: case 82: case 85:
         case 88: case 91: case 94: case 97:
@@ -707,6 +732,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         case 102: case 105: case 108: case 111:
           rsp = interrupt_history[(addr-64)/3].payload.u; 
           break; 
+#endif
 
         default:
           rsp = 0;      

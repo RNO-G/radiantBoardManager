@@ -17,7 +17,7 @@ VERSTRING=v${VER_MAJOR}r${VER_MINOR}p${VER_REV}
 
 mkdir -p ${VERSTRING} 
 
-for variant in v1 v2  
+for variant in v1 v2 v3
 do
   echo "Building $variant" 
   arduino-cli compile -e -b osu-boards:samd:radiant_$variant || exit 1
