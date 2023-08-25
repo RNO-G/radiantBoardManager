@@ -691,6 +691,9 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         case 59: 
           rsp = millis() < time_now ? time_overflow_counter+1 : time_overflow_counter; 
           break;
+        case 60: 
+          rsp = RADIANT_SAMPLE_RATE; 
+          break; 
 #ifdef ENABLE_INTERRUPT_HISTORY
         case 64: case 67: case 70: case 73:
         case 76: case 79: case 82: case 85:
