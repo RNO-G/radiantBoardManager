@@ -1,11 +1,11 @@
 //Register map for use with AN428 (JumpStart)
-//http://www.silabs.com/clocks 
+//http://www.skyworksinc.com/timing
 //#BEGIN_HEADER
-//Date = Tuesday, July 21, 2020 3:17 PM
+//Date = Tuesday, November 22, 2022 11:34 PM
 //File version = 3
 //Software Name = ClockBuilder Pro
-//Software version = 2.43.0.0
-//Software date = 3 31, 2020
+//Software version = 4.6.0.0
+//Software date = 10 7, 2022
 //Chip = Si533x
 //Part Number = Si533x
 //#END_HEADER
@@ -18,28 +18,28 @@
 //P2 = 1
 //FDBK Mux = NoClk
 //PFD Input Frequency (MHz) = 10.000000000
-//VCO Frequency (GHz) = 2.500000
-//N = 250  (250.0000)
+//VCO Frequency (GHz) = 2.550000
+//N = 255  (255.0000)
 //Internal feedback enabled
 //Output Clock 0
-// Output Frequency (MHz) = 25.000000000
+// Output Frequency (MHz) = 18.750000000
 // Mux Selection = IDn
-// MultiSynth = 100  (100.0000)
+// MultiSynth = 136  (136.0000)
 // R = 1
 //Output Clock 1
-// Output Frequency (MHz) = 25.000000000
+// Output Frequency (MHz) = 18.750000000
 // Mux Selection = IDn
-// MultiSynth = 100  (100.0000)
+// MultiSynth = 136  (136.0000)
 // R = 1
 //Output Clock 2
-// Output Frequency (MHz) = 25.000000000
+// Output Frequency (MHz) = 18.750000000
 // Mux Selection = IDn
-// MultiSynth = 100  (100.0000)
+// MultiSynth = 136  (136.0000)
 // R = 1
 //Output Clock 3
 // Output Frequency (MHz) = 10.000000000
 // Mux Selection = IDn
-// MultiSynth = 250  (250.0000)
+// MultiSynth = 255  (255.0000)
 // R = 1
 //Driver 0
 // Enabled
@@ -135,13 +135,13 @@ Reg_Data const Reg_Store[NUM_REGS_MAX] = {
 { 45,0x00,0xFF},
 { 46,0x00,0xFF},
 { 47,0x14,0x3F},
-{ 48,0x33,0xFF},
+{ 48,0x31,0xFF},
 { 49,0x05,0xFF},
 { 50,0xC4,0xFF},
 { 51,0x07,0xFF},
 { 52,0x10,0xFF},
 { 53,0x00,0xFF},
-{ 54,0x30,0xFF},
+{ 54,0x42,0xFF},
 { 55,0x00,0xFF},
 { 56,0x00,0xFF},
 { 57,0x00,0xFF},
@@ -152,7 +152,7 @@ Reg_Data const Reg_Store[NUM_REGS_MAX] = {
 { 62,0x00,0x3F},
 { 63,0x10,0xFF},
 { 64,0x00,0xFF},
-{ 65,0x30,0xFF},
+{ 65,0x42,0xFF},
 { 66,0x00,0xFF},
 { 67,0x00,0xFF},
 { 68,0x00,0xFF},
@@ -163,7 +163,7 @@ Reg_Data const Reg_Store[NUM_REGS_MAX] = {
 { 73,0x00,0x3F},
 { 74,0x10,0xFF},
 { 75,0x00,0xFF},
-{ 76,0x30,0xFF},
+{ 76,0x42,0xFF},
 { 77,0x00,0xFF},
 { 78,0x00,0xFF},
 { 79,0x00,0xFF},
@@ -173,8 +173,8 @@ Reg_Data const Reg_Store[NUM_REGS_MAX] = {
 { 83,0x00,0xFF},
 { 84,0x00,0x3F},
 { 85,0x10,0xFF},
-{ 86,0x00,0xFF},
-{ 87,0x7B,0xFF},
+{ 86,0x80,0xFF},
+{ 87,0x7D,0xFF},
 { 88,0x00,0xFF},
 { 89,0x00,0xFF},
 { 90,0x00,0xFF},
@@ -184,8 +184,8 @@ Reg_Data const Reg_Store[NUM_REGS_MAX] = {
 { 94,0x00,0xFF},
 { 95,0x00,0x3F},
 { 96,0x10,0x00},
-{ 97,0x00,0xFF},
-{ 98,0x7B,0xFF},
+{ 97,0x80,0xFF},
+{ 98,0x7D,0xFF},
 { 99,0x00,0xFF},
 {100,0x00,0xFF},
 {101,0x00,0xFF},
