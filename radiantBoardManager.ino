@@ -90,13 +90,12 @@ bool usbActive = false;
 // as of version 2.16, no longer read clocks from SPI flash but instead build it into the binary. 
 // It almost certainly takes up less space than the code to read from the SPI Flash and that's all it's needed for
 
-#if RADIANT_SAMPLE_RATE == 2400
-#include "clocks/clocks_18_75.h"
-#elif RADIANT_SAMPLE_RATE == 3200
-#include "clocks/clocks_25.h"
-#else
-#error unsupported sample rate
-#endif 
+#warning Using RADIANT_SAMPLE_RATE
+#define STRINGIFY_HELPER(x) #x
+#define STRINGIFY(x) STRINGIFY_HELPER(x) 
+#define CLOCK_PATH STRINGIFY(clocks/clocks_ RADIANT_SAMPLE_RATE.h)
+
+#include CLOCK_PATH
 
 
 uint8_t clockR(uint8_t addr) {

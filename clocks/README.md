@@ -7,7 +7,7 @@ IMPORTANT NOTE:
 Since v2.16, the board manager no longer reads the clock configuration off SPI flash, instead embedding it in the binary. 
 So the instructions here are bifurcated for changing the clock configuration on the board manager or on circuitpython.
 
-To change the onboard clock generation:
+TO  GENERATE THE CLOCK CONFIGURATION
 
 1. Use the ClockBuilderPro software:
 
@@ -23,14 +23,13 @@ Header File. Save that file to some header name.
 
 FOR CHANGING THE CLOCK ON THE BOARD MANAGER (since v2.16, see below for legacy method): 
 
-3. Edit generateClockFile.c to include the file you just saved. Compile that
-file (just "make generateClockFile" should work, no makefile needed), and
-run that executable, dumping its output to a file. Probably name it
-something like clocks_25.h 
+3. Edit generateEmbeddedClockFile.c to include the file you just saved. Compile
+that file (just "make generateEmbeddedClockFile" should work, no makefile
+needed), and run that executable, dumping its output to a file named
+clocks/clocks_${RATE}.h where ${RATE} is the desired sample rate in MHz. 
 
-4. Modify radiantBoardManager.ino to include the file you want for the desired sample rate (look for things like #if SAMPLE_RATE=) 
 
-5. If necessary, change the sample rate. 
+4.  If necessary, change the sample rate, either with compile flags (-DRADIANT_SAMPLE_RATE=XXXX) or by setting RADIANT_SAMPLE_RATE in the sketch
 
 
 
