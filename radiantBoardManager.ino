@@ -1,10 +1,10 @@
-#include <Adafruit_FlashCache.h>
-#include <Adafruit_FlashTransport.h>
-#include <Adafruit_SPIFlash.h>
-#include <Adafruit_SPIFlashBase.h>
-#include <flash_devices.h>
 #include <PacketSerial.h>
 
+#ifndef RADIANT_SAMPLE_RATE
+#define RADIANT_SAMPLE_RATE 2400
+#endif 
+
+#include <SPI.h>
 // SPISettings for attenuator (0x24 write)
 SPISettings settingsAtten(4000000, LSBFIRST, SPI_MODE0);
 // SPISettings for ADF4351 (0x28 write)
@@ -14,11 +14,11 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   15
+#define VER_REV   16
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 8
-#define DATE_DAY   24
+#define DATE_DAY   25
 #define DATE_YEAR  23
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
@@ -74,9 +74,9 @@ uint32_t control_reg = 0;
 // The default SAMD21 Xplained Pro peripherals are:
 // Serial (sercom3) 
 
-Adafruit_FlashTransport_SPI flashTransport(PIN_SPI_FLASHCS, SPI);
-Adafruit_SPIFlash flash(&flashTransport);
-FatFileSystem pythonfs;
+
+
+
 
 COBSPacketSerial cbIf;
 COBSPacketSerial usbIf;
@@ -86,39 +86,18 @@ COBSPacketSerial fpIf;
 
 bool usbActive = false;
 
-// Simple readline into a buffer of limited size.
-// This will *always* read a line, but it only stores up to len chars.
-int pyReadline(File *f, char *buf, uint32_t len) {
-  char c;
-  if (!f->available()) return 0;
-  do {
-    c = f->read();
-    if (len) {
-      *buf = c;
-      buf++;
-      len--;
-    }
-    if (c == 0xA) break;
-  } while (f->available());
-  return 1;
-}
 
-// Simple unhexlify. If the character's not 0-f, it'll get mangle-interpreted. Oh well.
-uint8_t unhexlify(char msn, char lsn) {
-  // Unhexlifying something isn't that hard:
-  // ASCII 0-9 are 0x30-0x39
-  // ASCII A-F are 0x61-0x66
-  msn &= 0x4F;
-  lsn &= 0x4F;
-  // Now mapped to either 0-0x9 or 0x41-0x46
-  if (msn & 0x40) msn = msn - 0x41 + 10;
-  // Now mapped to 0-0xF
-  msn = msn & 0xF;
-  if (lsn & 0x40) lsn = lsn - 0x41 + 10;
-  lsn = lsn & 0xF;
-  // Merge.
-  return (msn << 4) | lsn;  
-}
+// as of version 2.16, no longer read clocks from SPI flash but instead build it into the binary. 
+// It almost certainly takes up less space than the code to read from the SPI Flash and that's all it's needed for
+
+#if RADIANT_SAMPLE_RATE == 2400
+#include "clocks/clocks_18_75.h"
+#elif RADIANT_SAMPLE_RATE == 3200
+#include "clocks/clocks_25.h"
+#else
+#error unsupported sample rate
+#endif 
+
 
 uint8_t clockR(uint8_t addr) {
   Wire.beginTransmission(I2C_CLOCK);
@@ -152,19 +131,19 @@ int clockRMW(uint8_t addr, uint8_t reg,  uint8_t mask) {
 
 int clockConfigure(char *fn) {
   char buf[6]; 
-  if (!pythonfs.exists(fn)) return -1;
-  File clockFile = pythonfs.open(fn, FILE_READ);
   // start in page 0
   clockRMW(0xFF, 0x0, 0xFF);
   // disable outputs
   clockRMW(230, 0x10, 0x10);
   // pause LOL
   clockRMW(241, 0x80, 0xFF);
-  // Run the configuration procedure as outlined in the file.
-  while (pyReadline(&clockFile, buf, 6)) {
-    uint8_t addr = unhexlify(buf[0], buf[1]);
-    uint8_t reg = unhexlify(buf[2], buf[3]);
-    uint8_t mask = unhexlify(buf[4], buf[5]);
+  // Run the configuration procedure as outlined in the 
+
+  for (int iaddr = 0; iaddr < NCLOCK_REGS; iaddr++) 
+  {
+    uint8_t addr = CLOCK_REGS[iaddr][0];
+    uint8_t reg =  CLOCK_REGS[iaddr][1];
+    uint8_t mask =  CLOCK_REGS[iaddr][2]; 
     clockRMW(addr, reg, mask);
   }        
   // validate input clock status
@@ -369,9 +348,6 @@ void setup() {
   ////////////////////////////////////////////////////
   Wire.begin();  
   ////////////////////////////////////////////////////
-  if (!flash.begin()) diedie(BM_ERR_STARTUP_SPI);
-  if (!pythonfs.begin(&flash)) diedie(BM_ERR_STARTUP_FAT);
-  ////////////////////////////////////////////////////  
   SPI1.begin();
   // Re-convert the MISO pin back to an output (low)
   // because VINMON never got connected (... whoops).
