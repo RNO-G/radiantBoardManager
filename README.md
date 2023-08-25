@@ -5,7 +5,9 @@ You need a few requirements:
 
 * OSU Board Hardware repository ( https://github.com/barawn/osu-boards )
 * PacketSerial library
-* Adafruit_SPIFlash library
+
+
+Before v2.16, and possibly again in the future, it also required the Adafruit_SPIFlash library
 
 Note that this version accepts COBS-encoded packets on either
 the raw Serial path (from the controller board) or the SerialUSB
