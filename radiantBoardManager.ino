@@ -45,6 +45,15 @@ const uint32_t ver = ((DATE_ENC << 16) | (VER_ENC));
 
 #define I2C_DAC_BASE 0x60
 
+// unique ID pointers: the pointer is constant, the value can't be considered that
+// from https://microchip.my.site.com/s/article/Reading-unique-serial-number-on-SAM-D20-SAM-D21-SAM-R21-devices
+volatile uint32_t *const uuid[4] = {
+    0x0080A048,
+    0x0080A044,
+    0x0080A040,
+    0x0080A00C
+};
+
 const uint8_t i2c_gp[7] = {
     I2C_GPBASE | 0x0,
     I2C_GPBASE | 0x4,
@@ -667,6 +676,11 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         case 8: rsp = analogRead(A4); break;
         // SPI output (no readback)
         case 9: rsp = 0; break;
+	// unique ID
+	case 12: rsp = *uuid[0]; break;
+	case 13: rsp = *uuid[1]; break;
+	case 14: rsp = *uuid[2]; break;
+	case 15: rsp = *uuid[3]; break;	      	      
         case 16:
         case 17:
         case 18:
