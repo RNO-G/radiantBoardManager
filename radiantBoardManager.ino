@@ -14,11 +14,11 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   16
+#define VER_REV   17
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 8
-#define DATE_DAY   25
+#define DATE_DAY   29
 #define DATE_YEAR  23
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
@@ -30,7 +30,6 @@ const uint32_t ver = ((DATE_ENC << 16) | (VER_ENC));
 #define I2C_CLOCK  0x70
 #define I2C_GPBASE 0x38
 #endif
-#
 
 #ifdef _VARIANT_RADIANT_V2_
 #warning "RadiantV2 build"
@@ -54,6 +53,8 @@ const uint8_t i2c_gp[7] = {
     I2C_GPBASE | 0x5,
     I2C_GPBASE | 0x3
 };
+
+const uint32_t samd_uid_addr[4] = { 0x0080A00C, 0x0080A040, 0x00800A044, 0x00800A048}; 
 
 // NOTE PACKET FORMAT
 // the 'raw' output packet format is
@@ -136,7 +137,7 @@ int clockConfigure(char *fn) {
   clockRMW(230, 0x10, 0x10);
   // pause LOL
   clockRMW(241, 0x80, 0xFF);
-  // Run the configuration procedure as outlined in the 
+  // Run the configuration procedure as outlined in the included header file
 
   for (int iaddr = 0; iaddr < NCLOCK_REGS; iaddr++) 
   {
@@ -667,6 +668,13 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         case 8: rsp = analogRead(A4); break;
         // SPI output (no readback)
         case 9: rsp = 0; break;
+        // SAMD ID
+        case 12:
+        case 13: 
+        case 14: 
+        case 15: 
+          rsp = *((volatile uint32_t*)samd_uid_addr[addr-12]); break; 
+        break; 
         case 16:
         case 17:
         case 18:
