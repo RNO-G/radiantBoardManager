@@ -446,7 +446,11 @@ void setup() {
       if (Wire.endTransmission() != 0) diedie(BM_ERR_STARTUP_I2C);
       Wire.beginTransmission(i2c_gp[6]);
       Wire.write(3);
+#ifdef _VARIANT_RADIANT_V3_
+      Wire.write(0x0);
+#else
       Wire.write(0x80);
+#endif
       if (Wire.endTransmission() != 0) diedie(BM_ERR_STARTUP_I2C);      
     } else {
       // NO INITIAL POWERON STARTUP
