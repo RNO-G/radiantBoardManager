@@ -2,19 +2,20 @@
 # Initial setup, at least on a Linux platform, if you don't want to point and click on the arduino GUI :)
  
 
-#this is used to determine where to but the osu-boards 
-#really, we should read this with arduino-cli config 
-ARDUINO_DIR=$HOME/Arduino
 
-echo "Looking for arduino-cli" 
+echo -n "Looking for arduino-cli: " 
 which arduino-cli
 if [[ $? -eq 1 ]] ; then
   echo "no arduino-cli found, make sure it's in your PATH"
   echo "  instructions: https://arduino.github.io/arduino-cli" 
   exit 1
 fi
+echo Found `arduino-cli version`
 
-echo "Looking for uf2conv.py" 
+ARDUINO_DIR=`arduino-cli config dump | grep user: | sed -s 's/.*://g' | awk '{$1=$1};1'`
+echo "\$ARDUINO_DIR is $ARDUINO_DIR" 
+
+echo -n "Looking for uf2conv.py: " 
 which uf2conv.py
 if [[ $? -eq 1 ]] ; then
   echo "no uf2conv.py found, make sure it's in your PATH"
