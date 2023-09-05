@@ -16,11 +16,11 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   17
+#define VER_REV   18
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
-#define DATE_MONTH 8
-#define DATE_DAY   29
+#define DATE_MONTH 9
+#define DATE_DAY   5
 #define DATE_YEAR  23
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
@@ -31,17 +31,20 @@ const uint32_t ver = ((DATE_ENC << 16) | (VER_ENC));
 #warning "RadiantV3 build"
 #define I2C_CLOCK  0x70
 #define I2C_GPBASE 0x38
+#define VARIANT_RADIANT 3
 #endif
 
 #ifdef _VARIANT_RADIANT_V2_
 #warning "RadiantV2 build"
 #define I2C_CLOCK  0x70
 #define I2C_GPBASE 0x38
+#define VARIANT_RADIANT 2
 #endif
 #ifdef _VARIANT_RADIANT_V1_
 #warning "RadiantV1 build"
 #define I2C_CLOCK 0x71
 #define I2C_GPBASE 0x20
+#define VARIANT_RADIANT 1
 #endif
 
 #define I2C_DAC_BASE 0x60
@@ -697,7 +700,10 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
             else rsp = 0xFFFFFFFF;
           } else rsp = 0xFFFFFFFF;
           break;
-          // DACs don't have readback
+         case 23: 
+           rsp=VARIANT_RADIANT; 
+           break;
+        // DACs don't have readback
         case 58: 
           rsp = millis(); 
           break;
