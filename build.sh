@@ -26,7 +26,7 @@ EXTRA_ARGS=""
 
 for arg in "$@" ; 
 do 
-  EXTRA_ARGS="$EXTRA_ARGS  --build-property compiler.c.extra_flags=$arg"
+  EXTRA_ARGS="$EXTRA_ARGS  --build-property compiler.cpp.extra_flags=$arg"
 done 
 echo "$EXTRA_ARGS" 
 
@@ -35,9 +35,9 @@ for variant in v1 v2 v3
   for sample_rate in 2400 3200 ; 
     do
     echo "Building $variant@$sample_rate" 
-    samplerate_args="--build-property compiler.c.extra_flags=-DRADIANT_SAMPLE_RATE=$sample_rate"
-    echo cmdline: arduino-cli compile  -e -b osu-boards:samd:radiant_$variant $EXTRA_ARGS $samplerate_args . || exit 1
-    arduino-cli compile -e -b osu-boards:samd:radiant_$variant $EXTRA_ARGS $EXTRA_ARGS $samplerate_args . || exit 1
+    samplerate_args="--build-property compiler.cpp.extra_flags=-DRADIANT_SAMPLE_RATE=$sample_rate"
+    echo cmdline: arduino-cli compile -v -e -b osu-boards:samd:radiant_$variant $EXTRA_ARGS $samplerate_args . || exit 1
+    arduino-cli compile -v -e -b osu-boards:samd:radiant_$variant $EXTRA_ARGS $EXTRA_ARGS $samplerate_args . || exit 1
     BINFILE=${VERSTRING}/radiantBoardManager_${VERSTRING}.ino.radiant_${variant}.${sample_rate}MHz.bin
     cp build/osu-boards.samd.radiant_${variant}/radiantBoardManager.ino.bin ${BINFILE}
     echo "Converting to uf2" 
