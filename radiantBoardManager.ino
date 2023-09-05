@@ -4,6 +4,8 @@
 #define RADIANT_SAMPLE_RATE 2400
 #endif 
 
+#pragma message( "Sample Rate is " $RADIANT_SAMPLE_RATE " MHz"); 
+
 #include <SPI.h>
 // SPISettings for attenuator (0x24 write)
 SPISettings settingsAtten(4000000, LSBFIRST, SPI_MODE0);
