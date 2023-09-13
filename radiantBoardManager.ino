@@ -16,11 +16,11 @@ SPISettings settingsSigGen(4000000, MSBFIRST, SPI_MODE0);
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_REV   18
+#define VER_REV   19
 #define VER_ENC ( ((VER_MAJOR & 0xF) << 12) | ((VER_MINOR & 0xF) << 8) | (VER_REV & 0xFF))
 // these need to be automated, but it's a pain in the ass
 #define DATE_MONTH 9
-#define DATE_DAY   5
+#define DATE_DAY   13
 #define DATE_YEAR  23
 #define DATE_ENC (((DATE_YEAR & 0x7F) << 9) | ((DATE_MONTH & 0xF) << 5) | (DATE_DAY & 0x1F))
 
@@ -259,6 +259,7 @@ void diedie(uint8_t errcode) {
 #define CONTROL_JTAG_TDI     0x40000
 #define CONTROL_JTAG_TDO     0x80000
 #define CONTROL_JTAG_MASK    (CONTROL_JTAG_TCK | CONTROL_JTAG_TDI | CONTROL_JTAG_TMS)
+#define CONTROL_COBS_FLUSH   (0x1 << 31 )
 
 #ifdef ENABLE_TIMER_MODE
 int timer_mode_pin = BMGPIO2; 
@@ -767,6 +768,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         // Bit 17 = TMS (when JTAGEN)
         // Bit 18 = TDI (when JTAGEN)
         // Bit 19 = TDO (when JTAGEN)
+        // BIT 32 = FPGA COBS FLUSH
         case 3: control_reg &= ~0x8;
                 control_reg |= val & 0x8;
                 // handle PROG_B. If it's currently set,
@@ -820,6 +822,12 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
                   control_reg &= ~CONTROL_JTAG_MASK;
                   control_reg |= (val & CONTROL_JTAG_MASK);
                   
+                }
+                if (val & CONTROL_COBS_FLUSH)
+                {
+                  //no need to save this 
+                  for (uint8_t i=0;i<4;i++)
+                    Serial1.write((byte)0x00);  
                 }
                 break;
         // 4-8 are read-only
