@@ -39,7 +39,9 @@ for variant in v1 v2 v3
     echo cmdline: arduino-cli compile -v -e -b osu-boards:samd:radiant_$variant $EXTRA_ARGS $samplerate_args . || exit 1
     arduino-cli compile -v -e -b osu-boards:samd:radiant_$variant $EXTRA_ARGS $EXTRA_ARGS $samplerate_args . || exit 1
     BINFILE=${VERSTRING}/radiantBoardManager_${VERSTRING}.ino.radiant_${variant}.${sample_rate}MHz.bin
+    ELFFILE=${VERSTRING}/radiantBoardManager_${VERSTRING}.ino.radiant_${variant}.${sample_rate}MHz.elf
     cp build/osu-boards.samd.radiant_${variant}/radiantBoardManager.ino.bin ${BINFILE}
+    cp build/osu-boards.samd.radiant_${variant}/radiantBoardManager.ino.elf ${ELFFILE}
     echo "Converting to uf2" 
     UF2FILE=${VERSTRING}/radiant${variant}BoardManager_${VERSTRING}.${sample_rate}MHz.uf2
     uf2conv.py -o ${UF2FILE} ${BINFILE}
