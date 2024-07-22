@@ -768,7 +768,7 @@ void onCbPacketReceived(const uint8_t *buffer, size_t size) {
         // Bit 17 = TMS (when JTAGEN)
         // Bit 18 = TDI (when JTAGEN)
         // Bit 19 = TDO (when JTAGEN)
-        // BIT 32 = FPGA COBS FLUSH
+        // BIT 31 = FPGA COBS FLUSH
         case 3: control_reg &= ~0x8;
                 control_reg |= val & 0x8;
                 // handle PROG_B. If it's currently set,
